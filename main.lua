@@ -35,6 +35,9 @@ function love.load()
       return true, math.max(1, Input.duration('s'))
     end
   end)
+
+  app_input:bind('new_bubble', { '`', 'n' })
+  app_input:bind('test', { '`', 'j', 'k', 'l', ';' })
 end
 
 function love.update(dt)
@@ -71,7 +74,21 @@ function love.update(dt)
   end
 
   if Input.down('2', 1, 0.5) then
-    bubbles[#bubbles + 1] = NewBubble(x, y, 50)
+    bubbles[#bubbles + 1] = NewBubble(x, y, 40)
+  end
+
+  if Input.down('3', nil, 0.77) then
+    bubbles[#bubbles + 1] = NewBubble(x, y, 40)
+  end
+
+  if app_input:check('new_bubble', nil, 0.3) then
+    bubbles[#bubbles + 1] = NewBubble(x, y, 60)
+  end
+
+  if Input.down('lctrl') then
+    for i = 1, 1000 do
+      app_input:check('test', nil, 0.3)
+    end
   end
 
   local ts = love.timer.getTime()
@@ -97,6 +114,7 @@ function love.draw()
   lg.setColor(1, 1, 1, 1)
 
   local str = ''
+  str = str..'\nFPS: '..love.timer.getFPS()
   local down_keys = {}
   for i, key in ipairs(Input.get_pressed_keys()) do
     local desc = string.format('%s[%.2f]', key, Input.duration(key))

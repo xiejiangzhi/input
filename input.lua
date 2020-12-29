@@ -46,7 +46,7 @@ function M:bind(action, keys)
   end
 end
 
-function M:check(action)
+function M:check(action, delay, interval)
   local list = self.actions[action]
   if not list then error("Not found action "..tostring(action)) end
 
@@ -55,14 +55,19 @@ function M:check(action)
       local r, data = desc()
       if r then return true, data end
     else
-      local ok = true
+      local ok, min_duration, min_key = true, nil, nil
       for _, key in ipairs(desc) do
-        if not M.down(key) then
+        local is_down, _, duration = M.down(key, delay)
+        if is_down then
+          if not min_key or min_duration > duration then
+            min_key, min_duration = key, duration
+          end
+        else
           ok = false
           break
         end
       end
-      if ok then return true end
+      if ok and M.down(min_key, delay, interval) then return true end
     end
   end
 
@@ -114,9 +119,11 @@ end
 function M.down(key, delay, interval)
   local data = M.state[key]
   if not data then return false end
-  if not delay then
+  if not delay and not interval then
     return true, data, M.start_ts - M.state_time[key]
   end
+
+  if not delay then delay = interval end
 
   local changed_at = M.state_time[key]
   local duration = M.start_ts - changed_at
