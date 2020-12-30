@@ -166,6 +166,7 @@ function love.draw()
 
   str = str..'\nhistory: '..table.concat(seq_keys, ', ')
   str = str..string.format('\nx duration: %.2f', Input.duration('x') or 0)
+  str = str..string.format('\nleftx value: %.2f', Input.get_data('leftx') or 0)
   lg.print(str, 10, 10)
 end
 

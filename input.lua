@@ -9,7 +9,8 @@ local Callbacks = {
 local GetTime = love.timer.getTime
 
 local MouseKeysMapping = {
-  [1] = 'mouse1', [2] = 'mouse2', [3] = 'mouse3', [4] = 'mouse4', [5] = 'mouse5'
+  [1] = 'mouse1', [2] = 'mouse2', [3] = 'mouse3',
+  [4] = 'mouse4', [5] = 'mouse5', [6] = 'mouse6',
 }
 local GamepadKeysMapping = {
   a = 'fdown', y = 'fup', x = 'fleft', b = 'fright',
@@ -27,7 +28,7 @@ local GamepadKeysMapping = {
 M.axis_threshold = {
   leftx = 0.1, lefty = 0.1,
   rightx = 0.1, righty = 0.1,
-  triggerleft = 0.1, triggerright = 0.1,
+  l2 = 0.1, r2 = 0.1,
 }
 
 M.start_ts = -1
@@ -95,7 +96,7 @@ end
 
 function M.set_state(key, is_down, data)
   if M.state[key] == is_down then
-    M.state_data[key] = is_down
+    M.state_data[key] = data
     return
   end
   M.state[key] = is_down
@@ -214,6 +215,10 @@ function M.duration(key)
   return GetTime() - changed_at
 end
 
+function M.get_data(key)
+  return M.state_data[key]
+end
+
 -- Params:
 --  total: total cannot > seq_states.max
 -- return prev down
@@ -258,18 +263,14 @@ end
 
 function M.wheelmoved(x, y)
   if x < 0 then
-    M.set_state('wheelleft', true, -x)
     M.set_state('wheelx', true, x)
   elseif y > 0 then
-    M.set_state('wheelright', true, x)
     M.set_state('wheelx', true, x)
   end
 
   if y < 0 then
-    M.set_state('wheelup', true, -y)
     M.set_state('wheely', true, y)
   elseif y > 0 then
-    M.set_state('wheeldown', true, y)
     M.set_state('wheely', true, y)
   end
 end
@@ -283,20 +284,17 @@ function M.gamepadreleased(joystick, btn)
 end
 
 function M.gamepadaxis(joystick, axis, value)
-  local threshold = M.axis_threshold[axis]
-  if math.abs(value) <= threshold then
-    M.set_state(GamepadKeysMapping[axis], nil, 0)
+  local key = GamepadKeysMapping[axis]
+  local threshold = M.axis_threshold[key]
+  if math.abs(value) < threshold then
+    M.set_state(key, nil, value)
   else
-    M.set_state(GamepadKeysMapping[axis], true, value)
+    M.set_state(key, true, value)
   end
 end
 
 local ShouldResetKeys = {
-  'wheelleft', 'wheelright', 'wheelx',
-  'wheelup', 'wheeldown', 'wheely',
-
-  -- 'leftx', 'lefty', 'rightx', 'righty',
-  -- 'l2', 'r2'
+  'wheelx', 'wheely',
 }
 function M.push_state()
   for i, k in ipairs(ShouldResetKeys) do
