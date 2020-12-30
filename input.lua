@@ -1,10 +1,4 @@
 local M = {}
-M.__index = M
-M.new = function(...)
-  local obj = setmetatable({}, M)
-  obj:init(...)
-  return obj
-end
 
 local Callbacks = {
   'keypressed', 'keyreleased',
@@ -17,62 +11,67 @@ local GetTime = love.timer.getTime
 local MouseKeysMapping = {
   [1] = 'mouse1', [2] = 'mouse2', [3] = 'mouse3', [4] = 'mouse4', [5] = 'mouse5'
 }
+local GamepadKeysMapping = {
+  a = 'fdown', y = 'fup', x = 'fleft', b = 'fright',
+  back = 'back', guide = 'guide', start = 'start',
+  leftstick = 'leftstick', rightstick = 'rightstick',
+  leftshoulder = 'l1', rightshoulder = 'r1',
+  dpup = 'dpup', dpdown = 'dpdown', dpleft = 'dpleft', dpright = 'dpright',
+
+  -- axis
+  leftx = 'leftx', lefty = 'lefty',
+  rightx = 'rightx', righty = 'righty',
+  triggerleft = 'l2', triggerright = 'r2'
+}
+
+M.axis_threshold = {
+  leftx = 0.1, lefty = 0.1,
+  rightx = 0.1, righty = 0.1,
+  triggerleft = 0.1, triggerright = 0.1,
+}
 
 M.start_ts = -1
 M.prev_ts = -2
 M.state = {}
 M.state_time = {}
+M.state_data = {}
 M.prev_state_duration = {}
 
-function M:init()
-  self.actions = {}
-end
+M.seq_states = {
+  max_total = 10,
+  total = 0,
+  first = nil,
+  last = nil,
 
--- Params:
---  action; string id
---  keys; { 'xxx_key' } or function() return true, data end
-function M:bind(action, keys)
-  local list = self.actions[action]
-  if not list then
-    list = {}
-    self.actions[action] = list
-  end
-
-  if type(keys) == 'function' then
-    list[#list + 1] = keys
-  else
-    assert(#keys > 0, 'Keys cannot be empty')
-    list[#list + 1] = keys
-  end
-end
-
-function M:check(action, delay, interval)
-  local list = self.actions[action]
-  if not list then error("Not found action "..tostring(action)) end
-
-  for _, desc in ipairs(list) do
-    if type(desc) == 'function' then
-      local r, data = desc()
-      if r then return true, data end
+  push = function(self, key, timestamp)
+    local node
+    if self.total >= self.max_total then
+      node = self.first
+      self.first = self.first.next_node
+      self.first.prev_node = nil
+      node.next_node = nil
     else
-      local ok, min_duration, min_key = true, nil, nil
-      for _, key in ipairs(desc) do
-        local is_down, _, duration = M.down(key, delay)
-        if is_down then
-          if not min_key or min_duration > duration then
-            min_key, min_duration = key, duration
-          end
-        else
-          ok = false
-          break
-        end
-      end
-      if ok and M.down(min_key, delay, interval) then return true end
+      node = {}
+      self.total = self.total + 1
     end
-  end
 
-  return false
-end
+    node.key = key
+    node.ts = timestamp
+    if self.last then
+      node.interval = node.ts - self.last.ts
+    end
+
+    if self.last then
+      node.prev_node = self.last
+      self.last.next_node = node
+      self.last = node
+    else
+      self.first, self.last = node, node
+    end
+
+    return node
+  end
+}
 
 -----------------------------
 
@@ -94,13 +93,18 @@ function M.bind_events(callbacks)
   end
 end
 
-function M.set_state(key, state)
-  if M.state[key] == state then return end
+function M.set_state(key, state, data)
+  if M.state[key] == state then
+    M.state_data[key] = data
+    return
+  end
   M.state[key] = state
-
+  M.state_data[key] = data
   local ts = GetTime()
   M.prev_state_duration[key] = ts - (M.state_time[key] or 0)
   M.state_time[key] = ts
+
+  if state then M.seq_states:push(key, ts) end
 end
 
 function M.get_pressed_keys()
@@ -117,13 +121,13 @@ end
 --  interval: in seconds
 -- Return is_down, data, duration
 function M.down(key, delay, interval)
-  local data = M.state[key]
-  if not data then return false end
+  local is_down = M.state[key]
+  if not is_down then return false end
   if not delay and not interval then
-    return true, data, M.start_ts - M.state_time[key]
+    return true, M.state_data[key], M.start_ts - M.state_time[key]
   end
 
-  if not delay then delay = interval end
+  if not delay then delay = 0 end
 
   local changed_at = M.state_time[key]
   local duration = M.start_ts - changed_at
@@ -131,34 +135,79 @@ function M.down(key, delay, interval)
   local prev_duration = M.prev_ts - changed_at
 
   if prev_duration < delay and duration >= delay then
-    return true, data, duration
+    return true, M.state_data[key], duration
   end
   if not interval then return false end
 
   local dv = math.floor((duration - delay) / interval) * interval + delay
   if prev_duration < dv and duration >= dv then
-    return true, data, duration
+    return true, M.state_data[key], duration
   else
     return false
   end
 end
 
--- Return: is_pressed, data
-function M.pressed(key)
-  local data = M.state[key]
-  if not data then return false end
-  local changed_at = M.state_time[key]
-  if not changed_at or changed_at < M.start_ts then return false end
-  return true, data
+-- Down multiple keys
+function M.multidown(keys, delay, interval)
+  local min_duration, min_key
+  for _, key in ipairs(keys) do
+    local is_down, _, duration = M.down(key, delay)
+    if is_down then
+      if not min_duration or min_duration > duration then
+        min_key, min_duration = key, duration
+      end
+    else
+      return false
+    end
+  end
+  return M.down(min_key, delay, interval)
 end
 
--- Return: is_released, pressed duration
-function M.released(key)
-  local data = M.state[key]
-  if data then return false end
+-- Return: is_pressed, data, relesaed duration
+function M.pressed(key)
+  local is_down = M.state[key]
+  if not is_down then return false end
   local changed_at = M.state_time[key]
   if not changed_at or changed_at < M.start_ts then return false end
-  return true, M.prev_state_duration[key]
+  return true, M.state_data[key], M.prev_state_duration[key]
+end
+
+-- Return: is_released, data, pressed duration
+function M.released(key)
+  local is_down = M.state[key]
+  if is_down then return false end
+  local changed_at = M.state_time[key]
+  if not changed_at or changed_at < M.start_ts then return false end
+  return true, M.state_data[key], M.prev_state_duration[key]
+end
+
+function M.sequence(keys, min_interval, max_interval)
+  assert(#keys > 0, 'Keys cannot be empty')
+  local node = M.seq_states.last
+  if not node then return false end
+
+  -- down in current frame
+  if not M.state[node.key] then return false end
+  local changed_at = M.state_time[node.key]
+  if not changed_at or changed_at < M.start_ts then return false end
+
+  for i = #keys, 1, -1 do
+    if not node then return false end
+    local key = keys[i]
+    if node.key ~= key then return false end
+
+    -- ignore interval for start key
+    if i > 1 then
+      local interval = node.interval
+      if interval then
+        if min_interval and interval < min_interval then return false end
+        if max_interval and interval > max_interval then return false end
+      end
+    end
+    node = node.prev_node
+  end
+
+  return true
 end
 
 -- Return:
@@ -168,6 +217,21 @@ function M.duration(key)
   local changed_at = M.state_time[key]
   if not changed_at then return nil end
   return GetTime() - changed_at
+end
+
+-- Params:
+--  total: total cannot > seq_states.max
+-- return prev down
+function M.history(total)
+  local node = M.seq_states.last
+  local r = {}
+  for i = 1, M.seq_states.max_total do
+    if not node then break end
+    r[#r + 1] = { key = node.key, interval = node.interval }
+    if i >= total then break end
+    node = node.prev_node
+  end
+  return r
 end
 
 ------------------------
@@ -190,37 +254,45 @@ end
 
 function M.wheelmoved(x, y)
   if x < 0 then
-    M.set_state('wheelleft', -x)
-    M.set_state('wheelx', x)
+    M.set_state('wheelleft', true, -x)
+    M.set_state('wheelx', true, x)
   elseif y > 0 then
-    M.set_state('wheelright', x)
-    M.set_state('wheelx', x)
+    M.set_state('wheelright', true, x)
+    M.set_state('wheelx', true, x)
   end
 
   if y < 0 then
-    M.set_state('wheelup', -y)
-    M.set_state('wheely', y)
+    M.set_state('wheelup', true, -y)
+    M.set_state('wheely', true, y)
   elseif y > 0 then
-    M.set_state('wheeldown', y)
-    M.set_state('wheely', y)
+    M.set_state('wheeldown', true, y)
+    M.set_state('wheely', true, y)
   end
 end
 
-function M.gamepadpressed(key)
-  print(key)
+function M.gamepadpressed(joystick, btn)
+  M.set_state(GamepadKeysMapping[btn], true)
 end
 
-function M.gamepadreleased(key)
-  print(key)
+function M.gamepadreleased(joystick, btn)
+  M.set_state(GamepadKeysMapping[btn], nil)
 end
 
 function M.gamepadaxis(joystick, axis, value)
-  print(axis)
+  local threshold = M.axis_threshold[axis]
+  if math.abs(value) <= threshold then
+    M.set_state(GamepadKeysMapping[axis], nil, 0)
+  else
+    M.set_state(GamepadKeysMapping[axis], true, value)
+  end
 end
 
 local ShouldResetKeys = {
   'wheelleft', 'wheelright', 'wheelx',
-  'wheelup', 'wheeldown', 'wheely'
+  'wheelup', 'wheeldown', 'wheely',
+
+  -- 'leftx', 'lefty', 'rightx', 'righty',
+  -- 'l2', 'r2'
 }
 function M.push_state()
   for i, k in ipairs(ShouldResetKeys) do

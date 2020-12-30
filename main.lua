@@ -3,7 +3,17 @@ local Input = require 'input'
 local lg = love.graphics
 
 local x, y
-local app_input = Input.new()
+local app_input = {
+  actions = {},
+  bind = function(self, action, fn)
+    self.actions[action] = fn
+  end,
+  check = function(self, action)
+    local fn = self.actions[action]
+    if not fn then error("Invalid action "..tostring(action)) end
+    return fn()
+  end
+}
 local bubbles = {}
 
 local random = love.math.random
@@ -36,8 +46,6 @@ function love.load()
     end
   end)
 
-  app_input:bind('new_bubble', { '`', 'n' })
-  app_input:bind('test', { '`', 'j', 'k', 'l', ';' })
 end
 
 function love.update(dt)
@@ -45,13 +53,15 @@ function love.update(dt)
   if is_down then x = x + val end
   is_down, val = Input.down('wheely')
   if is_down then y = y + val end
-  if Input.released('mouse1') then
-    x, y = love.mouse.getPosition()
-  end
   is_down, val = app_input:check('kb_x')
   if is_down then x = x + val end
   is_down, val = app_input:check('kb_y')
   if is_down then y = y + val end
+  is_down, val = Input.down('leftx')
+  if is_down then x = x + val end
+  is_down, val = Input.down('lefty')
+  if is_down then y = y + val end
+  if Input.released('mouse1') then x, y = love.mouse.getPosition() end
 
   if Input.released('r') then
     x, y = lg.getDimensions()
@@ -81,13 +91,29 @@ function love.update(dt)
     bubbles[#bubbles + 1] = NewBubble(x, y, 40)
   end
 
-  if app_input:check('new_bubble', nil, 0.3) then
+  if Input.multidown({ 'lctrl', 'n' }, nil, 0.5) then
     bubbles[#bubbles + 1] = NewBubble(x, y, 60)
   end
 
-  if Input.down('lctrl') then
+  if Input.sequence({ '1', 'q' }, 0.1, 0.3) then
+    bubbles[#bubbles + 1] = NewBubble(x, y, 80)
+  end
+
+  if Input.sequence({ '2', 'q' }) then
+    bubbles[#bubbles + 1] = NewBubble(x - 30, y, 40)
+    bubbles[#bubbles + 1] = NewBubble(x + 30, y, 40)
+  end
+
+  if Input.sequence({ '1', '2', 'q' }) then
+    bubbles[#bubbles + 1] = NewBubble(x - 30, y + 10, 40)
+    bubbles[#bubbles + 1] = NewBubble(x + 30, y + 10, 40)
+    bubbles[#bubbles + 1] = NewBubble(x, y - 30, 40)
+  end
+
+  if Input.down('f12') then
+    local keys = { 'j', 'k', 'l', ';' }
     for i = 1, 1000 do
-      app_input:check('test', nil, 0.3)
+      Input.multidown(keys)
     end
   end
 
@@ -98,8 +124,8 @@ function love.update(dt)
     if b.life <= 0 then
       table.remove(bubbles, i)
     else
-      b.y = b.y - 10 * dt
-      b.x = b.x + math.sin(ts) * 5 * dt
+      b.y = b.y - 20 * dt
+      b.x = b.x + math.sin(b.y * 0.1 + ts) * 20 * dt
     end
   end
 end
@@ -126,6 +152,14 @@ function love.draw()
   end
   str = str..'\ndown keys: '..table.concat(down_keys, ', ')
   str = str..'\nbubbles: '..#bubbles
+
+  str = str..'\nbubbles: '..#bubbles
+  local seq_keys = {}
+  for i, info in ipairs(Input.history(5)) do
+    seq_keys[#seq_keys + 1] = string.format('%s[%.2f]', info.key, info.interval or 0)
+  end
+
+  str = str..'\nhistory: '..table.concat(seq_keys, ', ')
   lg.print(str, 10, 10)
 end
 
