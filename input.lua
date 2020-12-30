@@ -75,7 +75,7 @@ M.seq_states = {
 
 -----------------------------
 
-function M.bind_events(callbacks)
+function M.bind_callbacks(callbacks)
   for i, name in ipairs(Callbacks) do
     local old_cb = love[name]
     local input_cb = M[name]
@@ -93,26 +93,20 @@ function M.bind_events(callbacks)
   end
 end
 
-function M.set_state(key, state, data)
-  if M.state[key] == state then
-    M.state_data[key] = data
+function M.set_state(key, is_down, data)
+  if M.state[key] == is_down then
+    M.state_data[key] = is_down
     return
   end
-  M.state[key] = state
+  M.state[key] = is_down
   M.state_data[key] = data
   local ts = GetTime()
-  M.prev_state_duration[key] = ts - (M.state_time[key] or 0)
+
+  local prev_changed_at = M.state_time[key]
+  M.prev_state_duration[key] = prev_changed_at and (ts - prev_changed_at)
   M.state_time[key] = ts
 
-  if state then M.seq_states:push(key, ts) end
-end
-
-function M.get_pressed_keys()
-  local keys = {}
-  for k, v in pairs(M.state) do
-    keys[#keys + 1] = k
-  end
-  return keys
+  if is_down then M.seq_states:push(key, ts) end
 end
 
 -- Params:
@@ -210,6 +204,7 @@ function M.sequence(keys, min_interval, max_interval)
   return true
 end
 
+-- Exact duration
 -- Return:
 --  nil: not trigger
 --  >= 0: duration time in seconds
@@ -222,7 +217,7 @@ end
 -- Params:
 --  total: total cannot > seq_states.max
 -- return prev down
-function M.history(total)
+function M.get_history(total)
   local node = M.seq_states.last
   local r = {}
   for i = 1, M.seq_states.max_total do
@@ -233,6 +228,15 @@ function M.history(total)
   end
   return r
 end
+
+function M.get_down_keys()
+  local keys = {}
+  for k, v in pairs(M.state) do
+    keys[#keys + 1] = k
+  end
+  return keys
+end
+
 
 ------------------------
 

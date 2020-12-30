@@ -26,41 +26,41 @@ local NewBubble = function(bx, by, r)
 end
 
 function love.load()
-  Input.bind_events()
+  Input.bind_callbacks()
+
   x, y = lg.getDimensions()
   x, y = x / 2, y / 2
 
   app_input:bind('kb_x', function()
-    if Input.down('a') then
-      return true, math.min(-1, Input.duration('a'))
-    elseif Input.down('d') then
-      return true, math.max(1, Input.duration('d'))
-    end
+    local is_down, _, duration = Input.down('a')
+    if is_down then return true, -math.max(1, duration) end
+    is_down, _, duration = Input.down('d')
+    if is_down then return true, math.max(1, duration) end
   end)
 
   app_input:bind('kb_y', function()
-    if Input.down('w') then
-      return true, math.min(-1, Input.duration('w'))
-    elseif Input.down('s') then
-      return true, math.max(1, Input.duration('s'))
-    end
+    local is_down, _, duration = Input.down('w')
+    if is_down then return true, -math.max(1, duration) end
+    is_down, _, duration = Input.down('s')
+    if is_down then return true, math.min(1, duration) end
   end)
 
 end
 
 function love.update(dt)
+  local ov = 100 * dt
   local is_down, val = Input.down('wheelx')
-  if is_down then x = x + val end
+  if is_down then x = x + val * ov end
   is_down, val = Input.down('wheely')
-  if is_down then y = y + val end
+  if is_down then y = y + val * ov end
   is_down, val = app_input:check('kb_x')
-  if is_down then x = x + val end
+  if is_down then x = x + val * ov end
   is_down, val = app_input:check('kb_y')
-  if is_down then y = y + val end
+  if is_down then y = y + val * ov end
   is_down, val = Input.down('leftx')
-  if is_down then x = x + val end
+  if is_down then x = x + val * ov end
   is_down, val = Input.down('lefty')
-  if is_down then y = y + val end
+  if is_down then y = y + val * ov end
   if Input.released('mouse1') then x, y = love.mouse.getPosition() end
 
   if Input.released('r') then
@@ -73,7 +73,7 @@ function love.update(dt)
     Input.keyreleased('space')
     yes, duration = true, 5
   else
-    yes, duration = Input.released('space')
+    yes, _data, duration = Input.released('space')
   end
   if yes then
     bubbles[#bubbles + 1] = NewBubble(x, y, duration * 50)
@@ -95,18 +95,18 @@ function love.update(dt)
     bubbles[#bubbles + 1] = NewBubble(x, y, 60)
   end
 
-  if Input.sequence({ '1', 'q' }, 0.1, 0.3) then
+  if Input.sequence({ '1', 'q' }) then
     bubbles[#bubbles + 1] = NewBubble(x, y, 80)
   end
 
-  if Input.sequence({ '2', 'q' }) then
+  if Input.sequence({ '2', 'q' }, 0.1, 0.3) then
     bubbles[#bubbles + 1] = NewBubble(x - 30, y, 40)
     bubbles[#bubbles + 1] = NewBubble(x + 30, y, 40)
   end
 
   if Input.sequence({ '1', '2', 'q' }) then
-    bubbles[#bubbles + 1] = NewBubble(x - 30, y + 10, 40)
-    bubbles[#bubbles + 1] = NewBubble(x + 30, y + 10, 40)
+    bubbles[#bubbles + 1] = NewBubble(x - 30, y + 20, 40)
+    bubbles[#bubbles + 1] = NewBubble(x + 30, y + 20, 40)
     bubbles[#bubbles + 1] = NewBubble(x, y - 30, 40)
   end
 
@@ -115,6 +115,10 @@ function love.update(dt)
     for i = 1, 1000 do
       Input.multidown(keys)
     end
+  end
+
+  if Input.pressed('x') then
+    bubbles[#bubbles] = nil
   end
 
   local ts = love.timer.getTime()
@@ -141,8 +145,9 @@ function love.draw()
 
   local str = ''
   str = str..'\nFPS: '..love.timer.getFPS()
+  str = str..string.format('\npos: %i, %i', x, y)
   local down_keys = {}
-  for i, key in ipairs(Input.get_pressed_keys()) do
+  for i, key in ipairs(Input.get_down_keys()) do
     local desc = string.format('%s[%.2f]', key, Input.duration(key))
     local _is_down, data = Input.down(key)
     if type(data) == 'number' then
@@ -155,11 +160,12 @@ function love.draw()
 
   str = str..'\nbubbles: '..#bubbles
   local seq_keys = {}
-  for i, info in ipairs(Input.history(5)) do
+  for i, info in ipairs(Input.get_history(5)) do
     seq_keys[#seq_keys + 1] = string.format('%s[%.2f]', info.key, info.interval or 0)
   end
 
   str = str..'\nhistory: '..table.concat(seq_keys, ', ')
+  str = str..string.format('\nx duration: %.2f', Input.duration('x') or 0)
   lg.print(str, 10, 10)
 end
 
