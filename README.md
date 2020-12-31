@@ -1,7 +1,7 @@
 Input
 ===========
 
-Simple input handler for LOVE2D.
+Simple and powerful input handler for LOVE2D.
 
 ## Features
 
@@ -36,6 +36,7 @@ function love.update(dt)
   local keys_info = Input.get_history(2)
 end
 ```
+Better example please see [here](https://github.com/xiejiangzhi/input/blob/main/main.lua)
 
 ## API
 
