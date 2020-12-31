@@ -30,7 +30,7 @@ function love.update(dt)
   local is_released, data, pressed_duration = Input.released('leftx')
   local is_down = Input.multidown({ 'a', 'b' }, delay, interval)
   local min_interval, max_interval = 0, 0.3
-  local is_down = Input.sequence({ 'a', 'b' }, min_interval, max_interval)
+  local is_down, data_of_last_key = Input.sequence({ 'a', 'b' }, min_interval, max_interval)
 
   local keys = iNput.get_pressed_keys()
   local keys_info = Input.get_history(2)
@@ -60,20 +60,29 @@ Call it to setup input callbacks.
 local is_down, data, duration = Input.down('1')
 if is_down then assert(data == nil) end
 
--- for axis key
-local is_down, data, duration = Input.down('leftx')
+-- for mouse
+local is_down, pos, duration = Input.down('mouse1')
+if is_down then print(pos.x, pos.y) end
+
+-- for gamepad axis
+local is_down, axis_val, duration = Input.down('leftx')
 if is_down then assert(type(data) == 'number') end
 
-local is_down, data, duration = Input.down('wheelup')
-if is_down then assert(type(data) == 'number') end
+-- for wheel
+local is_down, wheel_val, duration = Input.down('wheelx')
+if is_down then assert(type(wheel_val) == 'number') end
 ```
 
 
 ### Check multiple keys is down
 
-`is_down = Input.multidown(key, delay, interval)`
+`is_down, data_of_last_key, duration = Input.multidown(keys, delay, interval)`
 
 `delay` and `interval` unit seconds
+
+```
+local is_down, mouse_pos, duration = Input.multidown({ 'fdown', 'mouse1' }, 1, 1)
+```
 
 
 ### Check a key is pressed on the current frame
@@ -94,7 +103,7 @@ if is_down then assert(type(data) == 'number') end
 
 ### Check keys is down in sequence
 
-`is_triggered = Input.sequence(keys, min_interval, max_interval)`
+`is_pressed, data_of_last_key = Input.sequence(keys, min_interval, max_interval)`
 
 
 ```lua
@@ -106,9 +115,27 @@ if is_down then assert(type(data) == 'number') end
 ```
 
 
+NOTE: Following keys is invalid for sequence, but you can change the set by `Input.SequenceExceptKeys`
+
+```lua
+-- Default value
+Input.SequenceExceptKeys = {
+  mousemove = true,
+  leftx = true, lefty = true,
+  rightx = true, righty = true
+}
+
+-- Except sequence keys 'a', 's' 'd' and 'w'
+for i, k in ipairs({ 'a', 's', 'd', 'w' }) do
+  Input.SequenceExceptKeys[k] = true
+end
+```
+
 ### Get a relative to time of the last action(pressed or released)
 
-`seconds = Input.duration(key)`
+`seconds = Input.duration(key, strict)`
+
+`strict`: Whether to calculate the exact time. Default value is false, duration relative to last frame.
 
 Return nil if the key has never been down
 
@@ -133,9 +160,24 @@ Return nil if the key has never been down
 `data = Input.get_data(key)`
 
 
-### Set a key state
+### Manually input event
 
-`Input.set_state(key, is_down, data)`
+Call following callbacks, the arguments is the same as Love2D's callbacks
+
+```lua
+local Callbacks = {
+  'keypressed', 'keyreleased',
+  'mousepressed', 'mousereleased', 'mousemoved', 'wheelmoved',
+  'gamepadpressed', 'gamepadreleased', 'gamepadaxis'
+}
+```
+
+Example
+
+```
+Input.keypressed('a')
+Input.keyreleased('a')
+```
 
 
 ## Axis threshold
@@ -157,8 +199,13 @@ Input.axis_threshold = {
 **Mouse**
 ```
 local MouseKeysMapping = {
+  move = 'mousemove',
+  wheelx = 'wheelx', wheely = 'wheely',
   [1] = 'mouse1', [2] = 'mouse2', [3] = 'mouse3',
   [4] = 'mouse4', [5] = 'mouse5', [6] = 'mouse6',
+}
+local WheelKeysMapping = {
+  x = 'wheelx', y = 'wheely'
 }
 ```
 

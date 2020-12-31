@@ -1,5 +1,10 @@
 local Input = require 'input'
 
+Input.SequenceExceptKeys.mousemove = false
+for i, k in ipairs({ 'a', 's', 'd', 'w' }) do
+  Input.SequenceExceptKeys[k] = true
+end
+
 local lg = love.graphics
 
 local x, y
@@ -61,21 +66,22 @@ function love.update(dt)
   if is_down then x = x + val * ov end
   is_down, val = Input.down('lefty')
   if is_down then y = y + val * ov end
-  if Input.released('mouse1') then x, y = love.mouse.getPosition() end
+  is_down, val = Input.released('mouse1')
+  if is_down then x, y = val.x, val.y end
 
   if Input.released('r') then
     x, y = lg.getDimensions()
     x, y = x / 2, y / 2
   end
 
-  local yes, duration
+  local should_new, duration
   if Input.down('space', 3) then
     Input.keyreleased('space')
-    yes, duration = true, 5
+    should_new, duration = true, 5
   else
-    yes, _data, duration = Input.released('space')
+    should_new, _data, duration = Input.released('space')
   end
-  if yes then
+  if should_new then
     bubbles[#bubbles + 1] = NewBubble(x, y, duration * 50)
   end
 
@@ -95,6 +101,13 @@ function love.update(dt)
     bubbles[#bubbles + 1] = NewBubble(x, y, 60)
   end
 
+  local pos
+  is_down, pos = Input.multidown({ 'lctrl', 'mouse2' }, 0, 0.5)
+  if is_down then
+    bubbles[#bubbles + 1] = NewBubble(pos.x - 20, pos.y - 20, 60)
+    bubbles[#bubbles + 1] = NewBubble(pos.x + 20, pos.y + 20, 60)
+  end
+
   if Input.sequence({ '1', 'q' }) then
     bubbles[#bubbles + 1] = NewBubble(x, y, 80)
   end
@@ -108,6 +121,11 @@ function love.update(dt)
     bubbles[#bubbles + 1] = NewBubble(x - 30, y + 20, 40)
     bubbles[#bubbles + 1] = NewBubble(x + 30, y + 20, 40)
     bubbles[#bubbles + 1] = NewBubble(x, y - 30, 40)
+  end
+
+  is_down, val = Input.sequence({ 'rctrl', 'mousemove' })
+  if is_down then
+    bubbles[#bubbles + 1] = NewBubble(x + val.dx * 50, y + val.dy * 50, 40)
   end
 
   if Input.down('f12') then
@@ -160,7 +178,7 @@ function love.draw()
 
   str = str..'\nbubbles: '..#bubbles
   local seq_keys = {}
-  for i, info in ipairs(Input.get_history(5)) do
+  for i, info in ipairs(Input.get_history(8)) do
     seq_keys[#seq_keys + 1] = string.format('%s[%.2f]', info.key, info.interval or 0)
   end
 
