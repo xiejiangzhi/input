@@ -19,7 +19,7 @@ Simple input handler for LOVE2D.
 local Input = require 'input'
 
 function love.load()
-  Input.bind_events()
+  Input.bind_callbacks()
 end
 
 function love.update(dt)
