@@ -1,7 +1,7 @@
 Input
 ===========
 
-Simple input for LOVE2D
+Simple input handler for LOVE2D.
 
 ## Features
 
@@ -121,6 +121,7 @@ NOTE: Following keys is invalid for sequence, but you can change the set by `Inp
 -- Default value
 Input.SequenceExceptKeys = {
   mousemove = true,
+  wheelx = true, wheely = true,
   leftx = true, lefty = true,
   rightx = true, righty = true
 }

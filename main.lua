@@ -36,37 +36,93 @@ function love.load()
   x, y = lg.getDimensions()
   x, y = x / 2, y / 2
 
-  app_input:bind('kb_x', function()
+  app_input:bind('move_x', function()
     local is_down, _, duration = Input.down('a')
-    if is_down then return true, -math.max(1, duration) end
+    if is_down then return -math.min(1, duration) end
     is_down, _, duration = Input.down('d')
-    if is_down then return true, math.max(1, duration) end
+    if is_down then return math.min(1, duration) end
+
+    local val
+    is_down, val = Input.down('wheelx')
+    if is_down then return val end
+    is_down, val = Input.down('leftx')
+    if is_down then return val end
+    return 0
   end)
 
-  app_input:bind('kb_y', function()
+  app_input:bind('move_y', function()
     local is_down, _, duration = Input.down('w')
-    if is_down then return true, -math.max(1, duration) end
+    if is_down then return -math.min(1, duration) end
     is_down, _, duration = Input.down('s')
-    if is_down then return true, math.min(1, duration) end
+    if is_down then return math.min(1, duration) end
+
+    local val
+    is_down, val = Input.down('wheely')
+    if is_down then return val end
+    is_down, val = Input.down('lefty')
+    if is_down then return val end
+    return 0
+  end)
+
+  app_input:bind('new_bubble', function()
+    local should_new, duration
+    if Input.down('space', 3) then
+      Input.keyreleased('space')
+      return { { x, y, 200 } }
+    else
+      should_new, _, duration = Input.released('space')
+      if should_new then
+        print(1, duration)
+        return { { x, y, math.max(duration, 0.1) * 50 } }
+      end
+    end
+
+    if Input.down('1', 1) then
+      return { { x, y, 25 } }
+    end
+
+    if Input.down('2', 1, 0.5) then
+      return { x, y, 40 }
+    end
+
+    if Input.down('3', nil, 0.77) then
+      return { { x, y, 40 } }
+    end
+
+    if Input.multidown({ 'lctrl', 'n' }, nil, 0.5) then
+      return { { x, y, 60 } }
+    end
+
+    local pos
+    should_new, pos = Input.multidown({ 'lctrl', 'mouse2' }, 0, 0.5)
+    if should_new then
+      return { { pos.x - 20, pos.y - 20, 60 }, { pos.x + 20, pos.y + 20, 60 } }
+    end
+
+    if Input.sequence({ '1', '2', 'q' }) then
+      return { { x - 30, y + 20, 40 }, { x + 30, y + 20, 40 }, { x, y - 30, 40 } }
+    end
+
+    if Input.sequence({ '1', 'q' }) then
+      return { { x, y, 80 } }
+    end
+
+    if Input.sequence({ '2', 'q' }, 0.1, 0.3) then
+      return { { x - 30, y, 40 }, { x + 30, y, 40 } }
+    end
+
+    should_new, pos = Input.sequence({ 'rctrl', 'mousemove' })
+    if should_new then
+      return { { x + pos.dx * 50, y + pos.dy * 50, 40 } }
+    end
   end)
 
 end
 
 function love.update(dt)
   local ov = 100 * dt
-  local is_down, val = Input.down('wheelx')
-  if is_down then x = x + val * ov end
-  is_down, val = Input.down('wheely')
-  if is_down then y = y + val * ov end
-  is_down, val = app_input:check('kb_x')
-  if is_down then x = x + val * ov end
-  is_down, val = app_input:check('kb_y')
-  if is_down then y = y + val * ov end
-  is_down, val = Input.down('leftx')
-  if is_down then x = x + val * ov end
-  is_down, val = Input.down('lefty')
-  if is_down then y = y + val * ov end
-  is_down, val = Input.released('mouse1')
+  x, y = x + app_input:check('move_x') * ov, y + app_input:check('move_y') * ov
+  local is_down, val = Input.released('mouse1')
   if is_down then x, y = val.x, val.y end
 
   if Input.released('r') then
@@ -74,64 +130,19 @@ function love.update(dt)
     x, y = x / 2, y / 2
   end
 
-  local should_new, duration
-  if Input.down('space', 3) then
-    Input.keyreleased('space')
-    should_new, duration = true, 5
-  else
-    should_new, _data, duration = Input.released('space')
-  end
-  if should_new then
-    bubbles[#bubbles + 1] = NewBubble(x, y, duration * 50)
+  local new_data = app_input:check('new_bubble')
+  if new_data then
+    for i, args in ipairs(new_data) do
+      bubbles[#bubbles + 1] = NewBubble(unpack(args))
+    end
   end
 
-  if Input.down('1', 1) then
-    bubbles[#bubbles + 1] = NewBubble(x, y, 25)
-  end
-
-  if Input.down('2', 1, 0.5) then
-    bubbles[#bubbles + 1] = NewBubble(x, y, 40)
-  end
-
-  if Input.down('3', nil, 0.77) then
-    bubbles[#bubbles + 1] = NewBubble(x, y, 40)
-  end
-
-  if Input.multidown({ 'lctrl', 'n' }, nil, 0.5) then
-    bubbles[#bubbles + 1] = NewBubble(x, y, 60)
-  end
-
-  local pos
-  is_down, pos = Input.multidown({ 'lctrl', 'mouse2' }, 0, 0.5)
-  if is_down then
-    bubbles[#bubbles + 1] = NewBubble(pos.x - 20, pos.y - 20, 60)
-    bubbles[#bubbles + 1] = NewBubble(pos.x + 20, pos.y + 20, 60)
-  end
-
-  if Input.sequence({ '1', 'q' }) then
-    bubbles[#bubbles + 1] = NewBubble(x, y, 80)
-  end
-
-  if Input.sequence({ '2', 'q' }, 0.1, 0.3) then
-    bubbles[#bubbles + 1] = NewBubble(x - 30, y, 40)
-    bubbles[#bubbles + 1] = NewBubble(x + 30, y, 40)
-  end
-
-  if Input.sequence({ '1', '2', 'q' }) then
-    bubbles[#bubbles + 1] = NewBubble(x - 30, y + 20, 40)
-    bubbles[#bubbles + 1] = NewBubble(x + 30, y + 20, 40)
-    bubbles[#bubbles + 1] = NewBubble(x, y - 30, 40)
-  end
-
-  is_down, val = Input.sequence({ 'rctrl', 'mousemove' })
-  if is_down then
-    bubbles[#bubbles + 1] = NewBubble(x + val.dx * 50, y + val.dy * 50, 40)
-  end
-
+  -- test performance
   if Input.down('f12') then
     local keys = { 'j', 'k', 'l', ';' }
     for i = 1, 1000 do
       Input.multidown(keys)
+      Input.sequence(keys)
     end
   end
 

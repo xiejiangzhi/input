@@ -81,6 +81,7 @@ M.seq_states = {
 
 M.SequenceExceptKeys = {
   mousemove = true,
+  wheelx = true, wheely = true,
   leftx = true, lefty = true,
   rightx = true, righty = true
 }
@@ -114,9 +115,9 @@ function M.set_state(key, is_down, data)
   M.state[key] = is_down
   M.state_data[key] = data
   local ts = GetTime()
-  M.state_time[key] = ts
   local prev_changed_at = M.state_time[key]
   M.prev_state_duration[key] = prev_changed_at and (ts - prev_changed_at)
+  M.state_time[key] = ts
 
   if is_down and not M.SequenceExceptKeys[key] then
     M.seq_states:push(key, ts)
