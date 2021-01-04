@@ -1,9 +1,10 @@
 local Input = require 'input'
 
-Input.SequenceExceptKeys.mousemove = false
+Input.sequence_except_keys.mousemove = false
 for i, k in ipairs({ 'a', 's', 'd', 'w' }) do
-  Input.SequenceExceptKeys[k] = true
+  Input.sequence_except_keys[k] = true
 end
+Input.multiple_gamepad = true
 
 local lg = love.graphics
 

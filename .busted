@@ -1,0 +1,10 @@
+return {
+  _all = {
+    coverage = false,
+    helper = 'spec.spec_helper'
+  },
+  default = {
+    verbose = true
+  }
+}
+

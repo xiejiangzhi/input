@@ -32,7 +32,7 @@ function love.update(dt)
   local min_interval, max_interval = 0, 0.3
   local is_down, data_of_last_key = Input.sequence({ 'a', 'b' }, min_interval, max_interval)
 
-  local keys = iNput.get_pressed_keys()
+  local keys = iNput.get_down_keys()
   local keys_info = Input.get_history(2)
 end
 ```
@@ -116,11 +116,11 @@ local is_down, mouse_pos, duration = Input.multidown({ 'fdown', 'mouse1' }, 1, 1
 ```
 
 
-NOTE: Following keys is invalid for sequence, but you can change the set by `Input.SequenceExceptKeys`
+NOTE: Following keys is invalid for sequence, but you can change the set by `Input.sequence_except_keys`
 
 ```lua
 -- Default value
-Input.SequenceExceptKeys = {
+Input.sequence_except_keys = {
   mousemove = true,
   wheelx = true, wheely = true,
   leftx = true, lefty = true,
@@ -129,7 +129,7 @@ Input.SequenceExceptKeys = {
 
 -- Except sequence keys 'a', 's' 'd' and 'w'
 for i, k in ipairs({ 'a', 's', 'd', 'w' }) do
-  Input.SequenceExceptKeys[k] = true
+  Input.sequence_except_keys[k] = true
 end
 ```
 
@@ -193,6 +193,19 @@ Input.axis_threshold = {
   l2 = 0.1, r2 = 0.1,
 }
 ```
+
+## Multiple gamepad
+
+Set `Input.multiple_gamepad = true`, then all gamepad keys will has a suffix `{key}:{index}`
+
+The first trigger gamepad will get index 1, others will be automatically incremented
+
+```
+Input.multiple_gamepad = true
+Input.down('fdown:1') -- first gamepad
+Input.down('fdown:2') -- seconds gamepad
+```
+**NOTE**: Now, multiple gamepad keys will push to one list, so `Input.sequence` cannot use specified gamepad index. Maybe it will be fixed later
 
 ## Keys
 
